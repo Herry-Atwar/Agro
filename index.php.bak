@@ -1,0 +1,357 @@
+<?php
+require_once 'config/database.php';
+require_once 'includes/functions.php';
+
+$db = getDB();
+
+// Set page title and include header
+$page_title = "Dashboard";
+require_once 'includes/header.php';
+
+// Get statistics
+$stats = [];
+
+// Total Companies
+$stmt = $db->query("SELECT COUNT(*) as total FROM companies WHERE status = 'Active'");
+$stats['companies'] = $stmt->fetch()['total'];
+
+// Total Business Units
+$stmt = $db->query("SELECT COUNT(*) as total FROM business_units WHERE status = 'Active'");
+$stats['business_units'] = $stmt->fetch()['total'];
+
+// Total Divisions
+$stmt = $db->query("SELECT COUNT(*) as total FROM divisions WHERE status = 'Active'");
+$stats['divisions'] = $stmt->fetch()['total'];
+
+// Total Blocks
+$stmt = $db->query("SELECT COUNT(*) as total FROM blocks");
+$stats['blocks'] = $stmt->fetch()['total'];
+
+// Total Area
+$stmt = $db->query("SELECT SUM(area) as total FROM blocks");
+$stats['total_area'] = $stmt->fetch()['total'] ?? 0;
+
+// TM Area (Mature)
+$stmt = $db->query("SELECT SUM(area) as total FROM blocks WHERE status = 'TM'");
+$stats['tm_area'] = $stmt->fetch()['total'] ?? 0;
+
+// TBM Area (Immature)
+$stmt = $db->query("SELECT SUM(area) as total FROM blocks WHERE status = 'TBM'");
+$stats['tbm_area'] = $stmt->fetch()['total'] ?? 0;
+
+// Total Plants
+$stmt = $db->query("SELECT SUM(total_plants) as total FROM blocks");
+$stats['total_plants'] = $stmt->fetch()['total'] ?? 0;
+
+// Recent Companies
+$stmt = $db->query("SELECT * FROM companies ORDER BY created_at DESC LIMIT 5");
+$recent_companies = $stmt->fetchAll();
+
+// Business Units by Type
+$stmt = $db->query("
+    SELECT unit_type, COUNT(*) as count, SUM(total_area) as total_area
+    FROM business_units 
+    WHERE status = 'Active'
+    GROUP BY unit_type
+");
+$bu_by_type = $stmt->fetchAll();
+
+// Blocks by Status
+$stmt = $db->query("
+    SELECT status, COUNT(*) as count, SUM(area) as total_area
+    FROM blocks
+    GROUP BY status
+");
+$blocks_by_status = $stmt->fetchAll();
+
+// Planting Years Summary
+$stmt = $db->query("
+    SELECT py.year, COUNT(b.block_id) as block_count, SUM(b.area) as total_area
+    FROM planting_years py
+    LEFT JOIN blocks b ON py.planting_year_id = b.planting_year_id
+    GROUP BY py.year
+    ORDER BY py.year DESC
+    LIMIT 10
+");
+$planting_years = $stmt->fetchAll();
+?>
+
+<div class="page-header">
+    <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+    <p class="text-muted">Plantation Master Data Overview</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Companies</p>
+                        <h3><?php echo number_format($stats['companies']); ?></h3>
+                    </div>
+                    <div class="text-primary">
+                        <i class="bi bi-building" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Business Units</p>
+                        <h3><?php echo number_format($stats['business_units']); ?></h3>
+                    </div>
+                    <div class="text-success">
+                        <i class="bi bi-diagram-3" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Divisions</p>
+                        <h3><?php echo number_format($stats['divisions']); ?></h3>
+                    </div>
+                    <div class="text-info">
+                        <i class="bi bi-grid-3x3" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Total Blocks</p>
+                        <h3><?php echo number_format($stats['blocks']); ?></h3>
+                    </div>
+                    <div class="text-warning">
+                        <i class="bi bi-grid" style="font-size: 2.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Area Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card border-primary">
+            <div class="card-body">
+                <p class="text-muted mb-1">Total Area</p>
+                <h3><?php echo format_number($stats['total_area']); ?> <small>Ha</small></h3>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card border-success">
+            <div class="card-body">
+                <p class="text-muted mb-1">TM Area (Mature)</p>
+                <h3><?php echo format_number($stats['tm_area']); ?> <small>Ha</small></h3>
+                <small class="text-muted"><?php echo $stats['total_area'] > 0 ? number_format(($stats['tm_area'] / $stats['total_area']) * 100, 1) : 0; ?>%</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card border-warning">
+            <div class="card-body">
+                <p class="text-muted mb-1">TBM Area (Immature)</p>
+                <h3><?php echo format_number($stats['tbm_area']); ?> <small>Ha</small></h3>
+                <small class="text-muted"><?php echo $stats['total_area'] > 0 ? number_format(($stats['tbm_area'] / $stats['total_area']) * 100, 1) : 0; ?>%</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card border-info">
+            <div class="card-body">
+                <p class="text-muted mb-1">Total Plants</p>
+                <h3><?php echo number_format($stats['total_plants']); ?></h3>
+                <small class="text-muted">All blocks</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Business Units by Type -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-pie-chart"></i> Business Units by Type
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th class="text-end">Count</th>
+                                <th class="text-end">Total Area (Ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($bu_by_type as $row): ?>
+                                <tr>
+                                    <td><i class="bi bi-circle-fill text-primary"></i> <?php echo $row['unit_type']; ?></td>
+                                    <td class="text-end"><strong><?php echo number_format($row['count']); ?></strong></td>
+                                    <td class="text-end"><?php echo format_number($row['total_area']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Blocks by Status -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-bar-chart"></i> Blocks by Status
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th class="text-end">Blocks</th>
+                                <th class="text-end">Total Area (Ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($blocks_by_status as $row): ?>
+                                <tr>
+                                    <td><?php echo get_status_badge($row['status']); ?></td>
+                                    <td class="text-end"><strong><?php echo number_format($row['count']); ?></strong></td>
+                                    <td class="text-end"><?php echo format_number($row['total_area']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Companies -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> Recent Companies
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <?php foreach ($recent_companies as $company): ?>
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1"><?php echo htmlspecialchars($company['company_name']); ?></h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-geo-alt"></i> <?php echo htmlspecialchars($company['province']); ?>
+                                    </small>
+                                </div>
+                                <div>
+                                    <?php echo get_status_badge($company['status']); ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="companies.php" class="btn btn-sm btn-outline-primary">View All Companies</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Planting Years Summary -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-calendar-event"></i> Planting Years Summary
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th class="text-end">Blocks</th>
+                                <th class="text-end">Area (Ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($planting_years as $row): ?>
+                                <tr>
+                                    <td><strong><?php echo $row['year']; ?></strong></td>
+                                    <td class="text-end"><?php echo number_format($row['block_count']); ?></td>
+                                    <td class="text-end"><?php echo format_number($row['total_area']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="planting_years.php" class="btn btn-sm btn-outline-primary">View All Planting Years</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-lightning"></i> Quick Actions
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 mb-2">
+                <a href="companies.php" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-building"></i> Manage Companies
+                </a>
+            </div>
+            <div class="col-md-3 mb-2">
+                <a href="business_units.php" class="btn btn-outline-success w-100">
+                    <i class="bi bi-diagram-3"></i> Manage Business Units
+                </a>
+            </div>
+            <div class="col-md-3 mb-2">
+                <a href="divisions.php" class="btn btn-outline-info w-100">
+                    <i class="bi bi-grid-3x3"></i> Manage Divisions
+                </a>
+            </div>
+            <div class="col-md-3 mb-2">
+                <a href="blocks.php" class="btn btn-outline-warning w-100">
+                    <i class="bi bi-grid"></i> Manage Blocks
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php require_once 'includes/footer.php'; ?>
+
+// Made with Bob
