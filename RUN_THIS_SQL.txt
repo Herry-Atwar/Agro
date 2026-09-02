@@ -1,0 +1,174 @@
+========================================
+COPY AND PASTE THIS INTO phpMyAdmin
+========================================
+
+Open phpMyAdmin (http://localhost/phpmyadmin)
+Select the "plantation" database
+Click on "SQL" tab
+Paste ALL the following SQL and click "Go"
+
+========================================
+
+USE plantation;
+
+-- 1. Create activity_budget_monthly table
+CREATE TABLE IF NOT EXISTS activity_budget_monthly (
+    monthly_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    plan_id BIGINT UNSIGNED NOT NULL,
+    budget_year YEAR NOT NULL,
+    budget_month TINYINT NOT NULL COMMENT '1-12',
+    planned_executions INT DEFAULT 0,
+    planned_man_days DECIMAL(10,2) DEFAULT 0,
+    planned_cost DECIMAL(15,2) DEFAULT 0,
+    actual_executions INT DEFAULT 0,
+    actual_man_days DECIMAL(10,2) DEFAULT 0,
+    actual_cost DECIMAL(15,2) DEFAULT 0,
+    variance_executions INT GENERATED ALWAYS AS (planned_executions - actual_executions) STORED,
+    variance_man_days DECIMAL(10,2) GENERATED ALWAYS AS (planned_man_days - actual_man_days) STORED,
+    variance_cost DECIMAL(15,2) GENERATED ALWAYS AS (planned_cost - actual_cost) STORED,
+    variance_percentage DECIMAL(10,2) GENERATED ALWAYS AS (
+        CASE WHEN planned_cost > 0 
+        THEN ((planned_cost - actual_cost) / planned_cost * 100) 
+        ELSE 0 END
+    ) STORED,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_plan (plan_id),
+    INDEX idx_year_month (budget_year, budget_month),
+    UNIQUE KEY unique_monthly (plan_id, budget_year, budget_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Create capital_budget_items table
+CREATE TABLE IF NOT EXISTS capital_budget_items (
+    item_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    budget_year YEAR NOT NULL,
+    company_id INT NULL,
+    division_id INT NULL,
+    block_id INT NULL,
+    item_code VARCHAR(50) NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    asset_category ENUM('machinery', 'equipment', 'vehicle', 'building', 'infrastructure', 'technology', 'other') NOT NULL,
+    asset_subcategory VARCHAR(100),
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(15,2) NOT NULL,
+    installation_cost DECIMAL(15,2) DEFAULT 0,
+    other_costs DECIMAL(15,2) DEFAULT 0,
+    total_cost DECIMAL(15,2) GENERATED ALWAYS AS ((quantity * unit_price) + installation_cost + other_costs) STORED,
+    useful_life_years INT NOT NULL,
+    depreciation_method ENUM('straight_line', 'declining_balance', 'units_of_production') DEFAULT 'straight_line',
+    salvage_value DECIMAL(15,2) DEFAULT 0,
+    annual_depreciation DECIMAL(15,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN depreciation_method = 'straight_line' AND useful_life_years > 0
+            THEN ((quantity * unit_price + installation_cost + other_costs - salvage_value) / useful_life_years)
+            ELSE 0
+        END
+    ) STORED,
+    planned_purchase_date DATE,
+    actual_purchase_date DATE NULL,
+    start_depreciation_date DATE NULL,
+    priority ENUM('critical', 'high', 'medium', 'low') DEFAULT 'medium',
+    status ENUM('planned', 'approved', 'ordered', 'received', 'installed', 'cancelled') DEFAULT 'planned',
+    business_case TEXT,
+    approved_by VARCHAR(50),
+    approval_date DATE,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(50),
+    updated_by VARCHAR(50),
+    FOREIGN KEY (company_id) REFERENCES companies(company_id) ON DELETE CASCADE,
+    FOREIGN KEY (division_id) REFERENCES divisions(division_id) ON DELETE CASCADE,
+    FOREIGN KEY (block_id) REFERENCES blocks(block_id) ON DELETE CASCADE,
+    INDEX idx_budget_year (budget_year),
+    INDEX idx_company (company_id),
+    INDEX idx_division (division_id),
+    INDEX idx_block (block_id),
+    INDEX idx_category (asset_category),
+    INDEX idx_status (status),
+    INDEX idx_item_code (item_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. Create vw_block_cost_summary view
+CREATE OR REPLACE VIEW vw_block_cost_summary AS
+SELECT 
+    YEAR(abm.budget_year) as cost_year,
+    abm.budget_month as cost_month,
+    b.block_id,
+    b.block_code,
+    b.block_name,
+    b.area as block_area,
+    c.company_id,
+    c.company_name,
+    d.division_id,
+    d.division_name,
+    py.planting_year_id,
+    py.year as planting_year,
+    
+    -- Cost breakdown
+    SUM(abm.actual_cost) as total_cost,
+    SUM(CASE WHEN ag.group_name LIKE '%Labor%' OR ag.group_name LIKE '%Tenaga%' 
+        THEN abm.actual_cost ELSE 0 END) as labor_cost,
+    SUM(CASE WHEN ag.group_name LIKE '%Material%' OR ag.group_name LIKE '%Pupuk%' OR ag.group_name LIKE '%Pestisida%'
+        THEN abm.actual_cost ELSE 0 END) as material_cost,
+    SUM(CASE WHEN ag.group_name LIKE '%Equipment%' OR ag.group_name LIKE '%Alat%'
+        THEN abm.actual_cost ELSE 0 END) as equipment_cost,
+    SUM(CASE WHEN ag.group_name NOT LIKE '%Labor%' AND ag.group_name NOT LIKE '%Material%' AND ag.group_name NOT LIKE '%Equipment%'
+        THEN abm.actual_cost ELSE 0 END) as overhead_cost,
+    
+    -- Man-days
+    SUM(abm.actual_man_days) as total_man_days,
+    
+    -- Cost per hectare
+    CASE WHEN b.area > 0 THEN SUM(abm.actual_cost) / b.area ELSE 0 END as cost_per_hectare,
+    
+    -- Activity count
+    COUNT(DISTINCT abp.activity_id) as activity_count
+    
+FROM activity_budget_monthly abm
+INNER JOIN activity_budget_plans abp ON abm.plan_id = abp.plan_id
+INNER JOIN blocks b ON abp.block_id = b.block_id
+INNER JOIN planting_years py ON b.planting_year_id = py.planting_year_id
+INNER JOIN divisions d ON py.division_id = d.division_id
+INNER JOIN business_units bu ON d.business_unit_id = bu.business_unit_id
+INNER JOIN companies c ON bu.company_id = c.company_id
+INNER JOIN activities a ON abp.activity_id = a.id
+INNER JOIN activity_groups ag ON a.activity_group_id = ag.id
+
+GROUP BY 
+    abm.budget_year,
+    abm.budget_month,
+    b.block_id,
+    b.block_code,
+    b.block_name,
+    b.area,
+    c.company_id,
+    c.company_name,
+    d.division_id,
+    d.division_name,
+    py.planting_year_id,
+    py.year;
+
+-- Verify
+SELECT 'All tables and views created successfully!' AS status;
+
+SELECT 'Tables Created:' AS info;
+SELECT table_name, table_type 
+FROM information_schema.tables 
+WHERE table_schema='plantation' 
+AND table_name IN ('activity_budget_monthly', 'capital_budget_items', 'vw_block_cost_summary')
+ORDER BY table_name;
+
+========================================
+AFTER RUNNING THE SQL ABOVE:
+========================================
+
+All these pages will work:
+- http://localhost/agro/budget.php
+- http://localhost/agro/activity_budget_monthly.php
+- http://localhost/agro/activity_budget_capital.php
+- http://localhost/agro/block_costing.php
+
+All errors will be fixed!

@@ -1,0 +1,251 @@
+<?php
+require_once 'config/database.php';
+require_once 'includes/functions.php';
+require_once 'includes/auth.php';
+
+// Already logged in? Go to dashboard
+if (is_logged_in()) {
+    redirect('index.php');
+}
+
+$error = '';
+
+if (is_post()) {
+    $username = post('username');
+    $password = $_POST['password'] ?? ''; // raw — needed for password_verify
+
+    if (empty($username) || empty($password)) {
+        $error = 'Please enter your username / email and password.';
+    } else {
+        $db = getDB();
+        if (login_user($username, $password)) {
+            $redirect = $_SESSION['redirect_after_login'] ?? 'index.php';
+            unset($_SESSION['redirect_after_login']);
+            redirect($redirect);
+        } else {
+            $error = 'Invalid username or password. Please try again.';
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — erpAgro - AGROBUSINESS SOLUTION</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary:      #4caf73;
+            --primary-dark: #388e54;
+            --primary-deep: #2d6e42;
+        }
+
+        /* ── photo background (portrait: phone/tablet) ── */
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #1a3a24;
+            background-image: url('images/login-bg.jpg');
+            background-size: cover;
+            background-position: center 20%;   /* show canopy arch at top */
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            position: relative;
+            overflow: hidden;
+            padding: 2rem 1rem;
+        }
+
+        /* ── landscape / laptop: switch to wide photo ── */
+        @media (min-width: 1024px) and (orientation: landscape) {
+            body {
+                background-image: url('images/login-bg-wide.jpg');
+                background-position: center center;
+            }
+        }
+
+        /* ── dark + green tint overlay ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(
+                160deg,
+                rgba(10, 30, 15, 0.55) 0%,
+                rgba(20, 60, 30, 0.42) 50%,
+                rgba(10, 30, 15, 0.60) 100%
+            );
+            z-index: 0;
+        }
+        /* stronger overlay on wide screens → card stays readable */
+        @media (min-width: 1024px) and (orientation: landscape) {
+            body::before {
+                background: linear-gradient(
+                    160deg,
+                    rgba(8, 25, 12, 0.68) 0%,
+                    rgba(15, 50, 25, 0.52) 50%,
+                    rgba(8, 25, 12, 0.70) 100%
+                );
+            }
+        }
+
+        /* ── card ── */
+        .login-card {
+            width: 100%;
+            max-width: 430px;
+            border: none;
+            border-radius: 16px;
+            box-shadow:
+                0 2px 6px rgba(0,0,0,0.06),
+                0 12px 40px rgba(45,110,66,0.16);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── header ── */
+        .login-header {
+            background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 100%);
+            color: #fff;
+            border-radius: 16px 16px 0 0;
+            padding: 2.2rem 2rem 1.8rem;
+            text-align: center;
+        }
+        .login-header .icon-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 68px; height: 68px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            margin-bottom: 0.8rem;
+        }
+        .login-header .icon-wrap i { font-size: 2.2rem; }
+        .login-header h4  { font-weight: 700; margin: 0 0 0.2rem; font-size: 1.22rem; letter-spacing: 0.3px; }
+        .login-header small { opacity: 0.80; font-size: 0.82rem; }
+
+        /* ── body ── */
+        .login-body { padding: 2rem 2rem 1.5rem; background: #fff; }
+
+        /* ── inputs ── */
+        .form-label { color: var(--primary-deep); font-size: 0.87rem; margin-bottom: 0.3rem; font-weight: 600; }
+        .input-group-text { background: #f0f8f2; border-color: #c8e6c9; color: var(--primary-deep); }
+        .form-control { border-color: #c8e6c9; }
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.2rem rgba(76,175,115,0.22);
+        }
+
+        /* ── button ── */
+        .btn-login {
+            background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 100%);
+            border: none;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            padding: 0.62rem 1rem;
+            font-size: 0.97rem;
+            transition: filter 0.2s;
+        }
+        .btn-login:hover { filter: brightness(1.08); background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary) 100%); border: none; }
+
+        /* ── card footer ── */
+        .card-footer {
+            background: #f0f8f2;
+            border-top: 1px solid #c8e6c9;
+            border-radius: 0 0 16px 16px !important;
+            color: #6a9a78;
+            font-size: 0.78rem;
+            padding: 0.6rem 1rem;
+        }
+
+        /* ── made with bob ── */
+        .made-with-bob {
+            position: relative;
+            z-index: 1;
+            margin-top: 1.2rem;
+            font-size: 0.73rem;
+            color: rgba(255,255,255,0.45);
+            text-align: center;
+            letter-spacing: 0.2px;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 0.7rem;
+            width: 100%;
+            max-width: 430px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card card">
+        <div class="login-header">
+            <div class="icon-wrap"><i class="bi bi-tree"></i></div>
+            <h4>AGROBUSINESS SOLUTION</h4>
+            <small>erpAgro — Plantation Management</small>
+        </div>
+
+        <div class="login-body">
+            <?php if ($error): ?>
+                <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> <?php echo htmlspecialchars($error); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['message'])): ?>
+                <div class="alert alert-<?php echo ($_SESSION['message_type'] ?? '') === 'success' ? 'success' : 'info'; ?> alert-dismissible fade show py-2" role="alert">
+                    <?php echo htmlspecialchars($_SESSION['message']); unset($_SESSION['message'], $_SESSION['message_type']); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" action="login.php" novalidate>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username / Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="admin@plantation.com" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" class="form-control" id="password" name="password"
+                               value="admin123" required>
+                        <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
+                            <i class="bi bi-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-login btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Sign In — Demo
+                </button>
+                <p class="text-center text-muted mt-3 mb-0" style="font-size:0.8rem;">
+                    <i class="bi bi-info-circle"></i> Demo credentials are pre-filled. Just click <strong>Sign In</strong>.
+                </p>
+            </form>
+        </div>
+
+        <div class="card-footer text-center">
+            &copy; <?php echo date('Y'); ?> erpAgro — AGROBUSINESS SOLUTION
+        </div>
+    </div>
+
+    <p class="made-with-bob">Powered by IBM Bob</p>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('togglePassword').addEventListener('click', function () {
+            var pwd  = document.getElementById('password');
+            var icon = document.getElementById('toggleIcon');
+            var show = pwd.type === 'password';
+            pwd.type       = show ? 'text' : 'password';
+            icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+    </script>
+</body>
+</html>
