@@ -1,0 +1,153 @@
+================================================================================
+COPY NURSERY MODULE FILES TO XAMPP
+================================================================================
+
+You need to copy 4 new files from this workspace to your XAMPP directory.
+
+SOURCE LOCATION (Current Workspace):
+c:/Users/Susilo Rahayu/OneDrive/Dokumen/Java-Modernization-Repo/dolibarr_area_management/plantation_master/
+
+DESTINATION (Your XAMPP):
+C:\xampp\htdocs\plantation_master\
+
+================================================================================
+FILES TO COPY:
+================================================================================
+
+1. nursery_stock.php
+   FROM: plantation_master/nursery_stock.php
+   TO:   C:\xampp\htdocs\plantation_master\nursery_stock.php
+
+2. nursery_production_plan.php
+   FROM: plantation_master/nursery_production_plan.php
+   TO:   C:\xampp\htdocs\plantation_master\nursery_production_plan.php
+
+3. nursery_distribution.php
+   FROM: plantation_master/nursery_distribution.php
+   TO:   C:\xampp\htdocs\plantation_master\nursery_distribution.php
+
+4. database/nursery_schema.sql
+   FROM: plantation_master/database/nursery_schema.sql
+   TO:   C:\xampp\htdocs\plantation_master\database\nursery_schema.sql
+
+5. NURSERY_MODULE_INSTALLATION.md (Optional - for reference)
+   FROM: plantation_master/NURSERY_MODULE_INSTALLATION.md
+   TO:   C:\xampp\htdocs\plantation_master\NURSERY_MODULE_INSTALLATION.md
+
+================================================================================
+STEP-BY-STEP COPY INSTRUCTIONS:
+================================================================================
+
+METHOD 1: Using Windows File Explorer
+--------------------------------------
+1. Open File Explorer
+2. Navigate to: c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master
+3. Select these 3 files:
+   - nursery_stock.php
+   - nursery_production_plan.php
+   - nursery_distribution.php
+4. Copy them (Ctrl+C)
+5. Navigate to: C:\xampp\htdocs\plantation_master
+6. Paste (Ctrl+V)
+
+7. Then go to: c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\database
+8. Copy: nursery_schema.sql
+9. Navigate to: C:\xampp\htdocs\plantation_master\database
+10. Paste the file
+
+METHOD 2: Using PowerShell (Quick Copy)
+----------------------------------------
+Open PowerShell and run these commands:
+
+# Copy PHP files
+Copy-Item "c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\nursery_stock.php" -Destination "C:\xampp\htdocs\plantation_master\nursery_stock.php"
+
+Copy-Item "c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\nursery_production_plan.php" -Destination "C:\xampp\htdocs\plantation_master\nursery_production_plan.php"
+
+Copy-Item "c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\nursery_distribution.php" -Destination "C:\xampp\htdocs\plantation_master\nursery_distribution.php"
+
+# Copy SQL file
+Copy-Item "c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\database\nursery_schema.sql" -Destination "C:\xampp\htdocs\plantation_master\database\nursery_schema.sql"
+
+# Copy installation guide (optional)
+Copy-Item "c:\Users\Susilo Rahayu\OneDrive\Dokumen\Java-Modernization-Repo\dolibarr_area_management\plantation_master\NURSERY_MODULE_INSTALLATION.md" -Destination "C:\xampp\htdocs\plantation_master\NURSERY_MODULE_INSTALLATION.md"
+
+================================================================================
+AFTER COPYING FILES:
+================================================================================
+
+1. CREATE DATABASE TABLES
+   ------------------------
+   a. Open phpMyAdmin: http://localhost/phpmyadmin
+   b. Select database: plantation_master
+   c. Click "Import" tab
+   d. Choose file: C:\xampp\htdocs\plantation_master\database\nursery_schema.sql
+   e. Click "Go" button
+   
+   OR use MySQL command line:
+   
+   mysql -u root -p plantation_master < C:\xampp\htdocs\plantation_master\database\nursery_schema.sql
+
+2. VERIFY INSTALLATION
+   --------------------
+   Open browser and test these URLs:
+   
+   a. http://localhost/plantation_master/nursery_stock.php
+   b. http://localhost/plantation_master/nursery_production_plan.php
+   c. http://localhost/plantation_master/nursery_distribution.php
+
+3. CHECK MENU
+   -----------
+   The nursery menu items should already be visible in your header navigation
+   under "Nursery Management" section.
+
+================================================================================
+TROUBLESHOOTING:
+================================================================================
+
+If you get errors:
+
+1. "Table doesn't exist"
+   → Run the nursery_schema.sql file in phpMyAdmin
+
+2. "No nurseries in dropdown"
+   → Create Business Units with unit_type = 'Nursery'
+
+3. "No varieties available"
+   → Create plant varieties in Plant Varieties module
+
+4. "Permission denied"
+   → Check file permissions, ensure XAMPP has read access
+
+5. "Page not found"
+   → Verify files are in correct location: C:\xampp\htdocs\plantation_master\
+
+================================================================================
+VERIFICATION CHECKLIST:
+================================================================================
+
+After copying, verify:
+☐ nursery_stock.php exists in C:\xampp\htdocs\plantation_master\
+☐ nursery_production_plan.php exists in C:\xampp\htdocs\plantation_master\
+☐ nursery_distribution.php exists in C:\xampp\htdocs\plantation_master\
+☐ nursery_schema.sql exists in C:\xampp\htdocs\plantation_master\database\
+☐ Database tables created (check in phpMyAdmin)
+☐ Pages load without errors
+☐ Menu items visible in navigation
+
+================================================================================
+QUICK TEST:
+================================================================================
+
+1. Start XAMPP (Apache + MySQL)
+2. Open: http://localhost/plantation_master/nursery_stock.php
+3. You should see the Nursery Stock Management page with:
+   - Page title and description
+   - 4 summary cards (Seeds, Sprouts, Polybag, Ready)
+   - Search and filter section
+   - Stock list table
+   - "Add New Stock" button
+
+If you see this, the installation is successful! ✅
+
+================================================================================
